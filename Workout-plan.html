@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<meta name="apple-mobile-web-app-title" content="Workout"/>
+<meta name="theme-color" content="#0a0a0f"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Weekly Workout Plan</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet"/>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { min-height: 100vh; background: #0a0a0f; font-family: 'Syne', sans-serif; overflow-x: hidden; color: #fff; }
+  .day-card { cursor: pointer; transition: transform 0.18s cubic-bezier(.4,2,.6,1), border-color 0.2s; user-select: none; background: #111116; border: 1.5px solid #1e1e28; border-radius: 14px; padding: 14px 8px; display: flex; flex-direction: column; align-items: center; gap: 7px; min-height: 130px; position: relative; overflow: hidden; }
+  .day-card:hover { transform: translateY(-4px) scale(1.02); }
+  .day-card.active { transform: translateY(-6px) scale(1.03); }
+  .day-label { font-family: 'DM Mono', monospace; font-size: 10px; font-weight: 600; letter-spacing: 2px; color: #444; }
+  .day-tag { font-family: 'DM Mono', monospace; font-size: 8px; letter-spacing: 1.5px; padding: 2px 6px; border-radius: 4px; }
+  .day-name { font-weight: 700; font-size: 10px; color: #777; text-align: center; line-height: 1.3; }
+  .glow-bar { position: absolute; top: 0; left: 0; right: 0; height: 2px; border-radius: 14px 14px 0 0; }
+  .exercise-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #ffffff0d; gap: 8px; }
+  .exercise-row:last-child { border-bottom: none; }
+  .panel { background: #111116; border-radius: 18px; padding: 24px 28px; position: relative; overflow: hidden; animation: slideUp 0.3s cubic-bezier(.4,2,.55,1) forwards; display: none; }
+  .panel.visible { display: block; }
+  @keyframes slideUp { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: translateY(0); } }
+  .close-btn { background: #ffffff12; border: none; color: #fff; border-radius: 50%; width: 32px; height: 32px; cursor: pointer; font-size: 20px; line-height: 1; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .close-btn:hover { background: #ffffff25; }
+  .tip-box { border-radius: 10px; padding: 12px 16px; display: flex; gap: 10px; align-items: flex-start; }
+  .sets-badge { font-family: 'DM Mono', monospace; font-size: 12px; padding: 4px 10px; border-radius: 6px; flex-shrink: 0; white-space: nowrap; }
+  .empty-hint { text-align: center; padding: 36px 0; font-family: 'DM Mono', monospace; font-size: 12px; color: #2a2a2a; letter-spacing: 1px; }
+  .grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; }
+  .wbtn { font-family: 'DM Mono', monospace; font-size: 12px; padding: 10px 20px; border-radius: 10px; cursor: pointer; letter-spacing: 1px; white-space: nowrap; border-width: 1.5px; border-style: solid; transition: opacity 0.15s; }
+  .wbtn:hover { opacity: 0.75; }
+  @media (max-width: 600px) {
+    .grid { grid-template-columns: repeat(4, 1fr); }
+    .panel { padding: 18px 16px; }
+    .wbtn { font-size: 11px; padding: 8px 14px; }
+  }
+</style>
+</head>
+<body>
+
+<div style="padding:40px 24px 20px;max-width:860px;margin:0 auto;">
+  <div style="display:flex;align-items:center;gap:12px;margin-bottom:6px;">
+    <div style="font-size:clamp(24px,4vw,40px);font-weight:800;letter-spacing:-1px;">WEEKLY PLAN</div>
+    <div style="font-family:'DM Mono',monospace;font-size:12px;color:#FF6B35;background:#FF6B3520;border:1px solid #FF6B3540;border-radius:6px;padding:4px 10px;letter-spacing:1px;">RECOMP</div>
+  </div>
+  <div style="font-family:'DM Mono',monospace;font-size:12px;color:#444;letter-spacing:1px;">183cm &middot; 60kg &middot; 3 gym days &middot; 2 runs &middot; full recomposition</div>
+</div>
+
+<div style="max-width:860px;margin:0 auto;padding:0 24px 20px;">
+  <div style="background:#111116;border:1.5px solid #1e1e28;border-radius:18px;padding:24px 28px;position:relative;overflow:hidden;">
+    <div style="position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,#FF6B35,#a78bfa,#00D4FF);border-radius:18px 18px 0 0;"></div>
+    <div id="today-content"></div>
+  </div>
+</div>
+
+<div style="max-width:860px;margin:0 auto 10px;padding:0 24px;">
+  <div style="font-family:'DM Mono',monospace;font-size:10px;color:#252525;letter-spacing:2px;">-- FULL WEEK --</div>
+</div>
+
+<div style="max-width:860px;margin:0 auto;padding:0 24px;" class="grid" id="calendar"></div>
+
+<div style="max-width:860px;margin:16px auto 0;padding:0 24px 48px;min-height:180px;" id="panel-container">
+  <div class="empty-hint">tap a day to see your workout</div>
+</div>
+
+<div style="max-width:860px;margin:0 auto;padding:0 32px 32px;display:flex;gap:20px;flex-wrap:wrap;">
+  <div style="display:flex;align-items:center;gap:8px;"><span>&#127947;</span><span style="font-family:'DM Mono',monospace;font-size:11px;color:#FF6B35;letter-spacing:1px;">GYM</span></div>
+  <div style="display:flex;align-items:center;gap:8px;"><span>&#127939;</span><span style="font-family:'DM Mono',monospace;font-size:11px;color:#00D4FF;letter-spacing:1px;">RUN</span></div>
+  <div style="display:flex;align-items:center;gap:8px;"><span>&#128564;</span><span style="font-family:'DM Mono',monospace;font-size:11px;color:#888;letter-spacing:1px;">REST</span></div>
+  <div style="display:flex;align-items:center;gap:8px;"><div style="width:10px;height:10px;border-radius:2px;background:#a78bfa22;border:1px solid #a78bfa55;"></div><span style="font-family:'DM Mono',monospace;font-size:11px;color:#a78bfa;letter-spacing:1px;">30-MIN ALT</span></div>
+</div>
+
+<script>
+var days = [
+  {
+    day:"MON", label:"Monday", type:"gym", color:"#FF6B35", title:"Push Day",
+    subtitle:"Chest / Shoulders / Triceps", tag:"GYM",
+    exercises:[
+      {name:"Bench Press", sets:"4 x 6-8", note:"Go heavy", weight:"40-50 kg"},
+      {name:"Overhead Press", sets:"3 x 8-10", note:"", weight:"25-30 kg"},
+      {name:"Incline DB Press", sets:"3 x 10-12", note:"", weight:"12-15 kg each"},
+      {name:"Lateral Raises", sets:"3 x 12-15", note:"Slow and controlled", weight:"5-8 kg each"},
+      {name:"Tricep Dips / Pushdowns", sets:"3 x 10-12", note:"", weight:"Bodyweight / 15 kg"}
+    ],
+    tip:"Progressive overload - add weight or 1 rep each week.",
+    alt:{title:"30-Min Home Push", subtitle:"No equipment needed",
+      exercises:[
+        {name:"Push-ups", sets:"4 x 15-20", note:"Wide grip for chest"},
+        {name:"Pike Push-ups", sets:"3 x 10-12", note:"Targets shoulders"},
+        {name:"Diamond Push-ups", sets:"3 x 10", note:"Hits triceps hard"},
+        {name:"Chair Dips", sets:"3 x 15", note:"Use any sturdy chair"},
+        {name:"Shoulder Taps", sets:"3 x 20", note:"Core and shoulder stability"}
+      ],
+      tip:"Move fast between exercises, rest only 30-45s. Should feel tough!"
+    }
+  },
+  {
+    day:"TUE", label:"Tuesday", type:"run", color:"#00D4FF", title:"Intervals",
+    subtitle:"Lung Power / VO2 Max", tag:"RUN",
+    exercises:[
+      {name:"Warm-up jog", sets:"5 min", note:"Easy pace", weight:""},
+      {name:"Sprint intervals", sets:"8 x 1 min hard", note:"90s easy jog between", weight:""},
+      {name:"Cool-down walk", sets:"5 min", note:"", weight:""}
+    ],
+    tip:"Hard = can't hold a conversation. Around 85-90% effort.",
+    alt:{title:"30-Min Indoor Cardio", subtitle:"Anywhere, no equipment",
+      exercises:[
+        {name:"Jumping Jacks", sets:"3 min", note:"Warm up"},
+        {name:"High Knees", sets:"8 x 45s", note:"30s rest between - go hard"},
+        {name:"Burpees", sets:"3 x 10", note:"Full body and lung killer"},
+        {name:"Shadow Boxing", sets:"3 x 2 min", note:"1 min rest - stay light on feet"},
+        {name:"Box Breathing", sets:"5 min", note:"Cool down"}
+      ],
+      tip:"High knees are your sprint replacement - drive your knees up and pump your arms."
+    }
+  },
+  {
+    day:"WED", label:"Wednesday", type:"gym", color:"#FF6B35", title:"Pull Day",
+    subtitle:"Back / Biceps", tag:"GYM",
+    exercises:[
+      {name:"Pull-ups / Lat Pulldown", sets:"4 x 6-8", note:"Add weight if easy", weight:"Bodyweight / 40 kg"},
+      {name:"Barbell Row", sets:"4 x 8-10", note:"", weight:"40-50 kg"},
+      {name:"Seated Cable Row", sets:"3 x 10-12", note:"", weight:"30-40 kg"},
+      {name:"Face Pulls", sets:"3 x 15", note:"Posture and shoulder health", weight:"10-15 kg"},
+      {name:"Barbell Curl", sets:"3 x 10-12", note:"", weight:"20-25 kg"}
+    ],
+    tip:"Control the negative (lowering) phase on every rep.",
+    alt:{title:"30-Min Home Pull", subtitle:"Minimal equipment",
+      exercises:[
+        {name:"Table Rows", sets:"4 x 12-15", note:"Lie under a table, pull chest to edge"},
+        {name:"Towel Bicep Curls", sets:"3 x 15", note:"Step on a towel, curl it up"},
+        {name:"Superman Hold", sets:"3 x 30s", note:"Lie face down, lift arms and legs"},
+        {name:"Reverse Snow Angels", sets:"3 x 15", note:"Face down, arms sweep up and back"},
+        {name:"Dead Hangs", sets:"3 x 30s", note:"If you have a bar or sturdy branch"}
+      ],
+      tip:"Pull days are harder at home - focus on slow reps and squeezing your back."
+    }
+  },
+  {
+    day:"THU", label:"Thursday", type:"rest", color:"#888888", title:"Rest Day",
+    subtitle:"Recovery / Light Walk", tag:"REST",
+    exercises:[
+      {name:"Box Breathing", sets:"5 min", note:"4s in / 4s hold / 4s out", weight:""},
+      {name:"Diaphragmatic Breathing", sets:"10 deep breaths", note:"Hand on belly", weight:""},
+      {name:"Light walk", sets:"Optional", note:"Keep it easy", weight:""}
+    ],
+    tip:"Muscles grow on rest days. Don't skip this.",
+    alt:{title:"Gym Bonus Day", subtitle:"Since you're there - make it count",
+      exercises:[
+        {name:"Bench Press", sets:"3 x 8-10", note:"Lighter than Monday", weight:"35-45 kg"},
+        {name:"Pull-ups or Lat Pulldown", sets:"3 x 8-10", note:"", weight:"Bodyweight / 35 kg"},
+        {name:"Dumbbell Shoulder Press", sets:"3 x 10-12", note:"", weight:"10-14 kg each"},
+        {name:"Cable Rows", sets:"3 x 12", note:"", weight:"25-35 kg"},
+        {name:"Plank", sets:"3 x 45s", note:"", weight:"Bodyweight"}
+      ],
+      tip:"This is a bonus day - keep intensity moderate, don't go all out. Save energy for Friday."
+    }
+  },
+  {
+    day:"FRI", label:"Friday", type:"gym", color:"#FF6B35", title:"Legs + Core",
+    subtitle:"Quads / Hamstrings / Abs", tag:"GYM",
+    exercises:[
+      {name:"Barbell Squat", sets:"4 x 6-8", note:"King of recomp lifts", weight:"50-60 kg"},
+      {name:"Romanian Deadlift", sets:"3 x 8-10", note:"", weight:"40-50 kg"},
+      {name:"Leg Press", sets:"3 x 10-12", note:"", weight:"60-80 kg"},
+      {name:"Walking Lunges", sets:"3 x 12/leg", note:"", weight:"10-12 kg each"},
+      {name:"Plank", sets:"3 x 45-60s", note:"", weight:"Bodyweight"},
+      {name:"Hanging Leg Raises", sets:"3 x 12-15", note:"", weight:"Bodyweight"}
+    ],
+    tip:"Squat depth matters - aim for parallel or below.",
+    alt:{title:"30-Min Home Legs", subtitle:"No equipment needed",
+      exercises:[
+        {name:"Jump Squats", sets:"4 x 15", note:"Land soft, explode up"},
+        {name:"Bulgarian Split Squats", sets:"3 x 12/leg", note:"Back foot on chair"},
+        {name:"Glute Bridges", sets:"3 x 20", note:"Squeeze at the top"},
+        {name:"Wall Sit", sets:"3 x 45s", note:"Thighs parallel to floor"},
+        {name:"Plank", sets:"3 x 45s", note:""},
+        {name:"Bicycle Crunches", sets:"3 x 20", note:"Slow and controlled"}
+      ],
+      tip:"Jump squats are brutal - pace yourself on the first set."
+    }
+  },
+  {
+    day:"SAT", label:"Saturday", type:"run", color:"#00D4FF", title:"Zone 2 Run",
+    subtitle:"Lung Capacity / Fat Burn", tag:"RUN",
+    exercises:[
+      {name:"Steady-state run", sets:"30-45 min", note:"Conversational pace", weight:""},
+      {name:"Heart rate target", sets:"120-140 bpm", note:"If you track it", weight:""},
+      {name:"Progression", sets:"+5 min every 2 weeks", note:"", weight:""}
+    ],
+    tip:"You should be able to hold a conversation the whole time.",
+    alt:{title:"30-Min Breathing Circuit", subtitle:"Lung capacity at home",
+      exercises:[
+        {name:"Brisk walk or stair climbing", sets:"10 min", note:"Get heart rate up gently"},
+        {name:"Pursed lip breathing", sets:"5 min", note:"Inhale 2s, exhale 4-6s"},
+        {name:"Step-ups on a chair", sets:"3 x 2 min", note:"Steady pace, focus on breathing"},
+        {name:"Diaphragmatic breathing", sets:"5 min", note:"Belly breaths, slow and deep"},
+        {name:"Box breathing", sets:"5 min", note:"4s in / 4s hold / 4s out"}
+      ],
+      tip:"This keeps your aerobic base going without needing to go outside."
+    }
+  },
+  {
+    day:"SUN", label:"Sunday", type:"rest", color:"#888888", title:"Full Rest",
+    subtitle:"Recovery / Recharge", tag:"REST",
+    exercises:[
+      {name:"Pursed Lip Exhales", sets:"5 min", note:"Inhale 2s / exhale 4-6s", weight:""},
+      {name:"Diaphragmatic Breathing", sets:"10 breaths", note:"Belly, not chest", weight:""},
+      {name:"Meal prep", sets:"Recommended", note:"Hit 150-160g protein/day", weight:""}
+    ],
+    tip:"Prep your meals today - protein is everything for recomp.",
+    alt:{title:"Full Rest - No Alt", subtitle:"You actually need this one",
+      exercises:[
+        {name:"Breathing drills", sets:"10 min", note:"Diaphragmatic + box breathing"},
+        {name:"Meal prep", sets:"Recommended", note:"Cook your protein for the week"},
+        {name:"Sleep 8h", sets:"Non-negotiable", note:"This is when you actually grow"}
+      ],
+      tip:"Sunday is sacred. Don't train. Let your body rebuild - that's the whole point."
+    }
+  }
+];
+
+var tagStyles = {
+  GYM:  {bg:"#FF6B3522",border:"#FF6B3555",text:"#FF6B35"},
+  RUN:  {bg:"#00D4FF22",border:"#00D4FF55",text:"#00D4FF"},
+  REST: {bg:"#88888822",border:"#88888855",text:"#aaa"}
+};
+
+function buildRows(exercises, color) {
+  return exercises.map(function(ex) {
+    return '<div class="exercise-row">'
+      + '<div style="display:flex;align-items:center;gap:10px;flex:1">'
+      + '<div style="width:6px;height:6px;border-radius:50%;background:'+color+';flex-shrink:0"></div>'
+      + '<div><div style="font-weight:600;font-size:14px;color:#ddd">'+ex.name+'</div>'
+      + (ex.note ? '<div style="font-family:\'DM Mono\',monospace;font-size:11px;color:#444;margin-top:2px">'+ex.note+'</div>' : '')
+      + '</div></div>'
+      + '<div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0">'
+      + '<div class="sets-badge" style="color:'+color+';background:'+color+'15">'+ex.sets+'</div>'
+      + (ex.weight ? '<div class="sets-badge" style="color:#aaa;background:#ffffff0a;font-size:11px">'+ex.weight+'</div>' : '')
+      + '</div></div>';
+  }).join('');
+}
+
+// ── TODAY WIZARD ─────────────────────────────────────────
+var dayNames = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+var todayName = dayNames[new Date().getDay()];
+var todayData = days.filter(function(d){return d.label===todayName;})[0] || days[0];
+var wState = {step:0, gym:null, run:null};
+
+function wBtn(id, label, col) {
+  col = col||'#FF6B35';
+  return '<button class="wbtn" id="'+id+'" style="border-color:'+col+'55;background:'+col+'15;color:'+col+';">'+label+'</button>';
+}
+
+function renderWizard() {
+  var tc = document.getElementById('today-content');
+  var hdr = '<div style="font-family:\'DM Mono\',monospace;font-size:11px;color:#555;letter-spacing:2px;margin-bottom:10px;">TODAY &middot; '+todayName.toUpperCase()+'</div>';
+
+  if (wState.step === 0) {
+    tc.innerHTML = hdr
+      + '<div style="font-size:18px;font-weight:800;margin-bottom:18px;line-height:1.3">Can you get to the gym today?</div>'
+      + '<div style="display:flex;gap:10px;flex-wrap:wrap">'
+      + wBtn('wgy', 'Yes, gym access') + wBtn('wgn', 'No gym today', '#a78bfa')
+      + '</div>';
+    document.getElementById('wgy').onclick = function(){wState.gym=true; wState.step=3; renderWizard();};
+    document.getElementById('wgn').onclick = function(){wState.gym=false; wState.step=1; renderWizard();};
+
+  } else if (wState.step === 1) {
+    tc.innerHTML = hdr
+      + '<div style="font-size:18px;font-weight:800;margin-bottom:18px;line-height:1.3">Can you go for a run?</div>'
+      + '<div style="display:flex;gap:10px;flex-wrap:wrap">'
+      + wBtn('wry', 'Yeah, I can run') + wBtn('wrn', 'Not today', '#a78bfa')
+      + '</div>';
+    document.getElementById('wry').onclick = function(){wState.run=true; wState.step=3; renderWizard();};
+    document.getElementById('wrn').onclick = function(){wState.run=false; wState.step=2; renderWizard();};
+
+  } else if (wState.step === 2) {
+    tc.innerHTML = hdr
+      + '<div style="font-size:18px;font-weight:800;margin-bottom:18px;line-height:1.3">How much time do you have?</div>'
+      + '<div style="display:flex;gap:10px;flex-wrap:wrap">'
+      + wBtn('wt3', 'About 30 min', '#00D4FF') + wBtn('wt4', '45+ min', '#00D4FF')
+      + '</div>';
+    document.getElementById('wt3').onclick = function(){wState.time='30'; wState.step=3; renderWizard();};
+    document.getElementById('wt4').onclick = function(){wState.time='45'; wState.step=3; renderWizard();};
+
+  } else {
+    var workout, mode, reason;
+    if (wState.gym) {
+      var gymDays = days.filter(function(d){return d.type==='gym';});
+      workout = todayData.type==='gym' ? todayData : gymDays[0];
+      mode = 'main';
+      reason = todayData.type==='gym' ? 'Right on schedule!' : 'You have gym access - putting it to good use';
+    } else if (wState.run) {
+      var runDays = days.filter(function(d){return d.type==='run';});
+      workout = todayData.type==='run' ? todayData : runDays[0];
+      mode = 'main';
+      reason = 'Lace up - run day it is';
+    } else {
+      workout = todayData;
+      mode = 'alt';
+      reason = wState.time==='30' ? 'Quick 30-min home session - no excuses' : 'No gym, no run - home workout sorted';
+    }
+
+    var isAlt = mode==='alt' && workout.alt;
+    var view = isAlt ? workout.alt : workout;
+    var col = isAlt ? '#a78bfa' : workout.color;
+
+    tc.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px;margin-bottom:12px;">'
+      + '<div>'+hdr
+      + '<div style="font-size:20px;font-weight:800;margin-bottom:2px">'+(view.title||workout.title)+'</div>'
+      + '<div style="font-family:\'DM Mono\',monospace;font-size:11px;color:'+col+'">'+reason+'</div>'
+      + '</div>'
+      + '<button id="wreset" style="font-family:\'DM Mono\',monospace;font-size:10px;color:#444;background:transparent;border:1px solid #252525;border-radius:6px;padding:5px 12px;cursor:pointer;letter-spacing:1px;flex-shrink:0;">start over</button>'
+      + '</div>'
+      + '<div style="margin-bottom:16px">'+buildRows(view.exercises,col)+'</div>'
+      + '<div class="tip-box" style="background:'+col+'10;border:1px solid '+col+'25">'
+      + '<span>&#128161;</span>'
+      + '<div style="font-family:\'DM Mono\',monospace;font-size:12px;color:#777;line-height:1.6">'+(view.tip||workout.tip)+'</div>'
+      + '</div>';
+
+    document.getElementById('wreset').onclick = function(){
+      wState={step:0,gym:null,run:null,time:null};
+      renderWizard();
+    };
+  }
+}
+
+// ── WEEK CALENDAR ─────────────────────────────────────────
+var selected = null;
+var showAlt = false;
+var calendar = document.getElementById('calendar');
+var panelContainer = document.getElementById('panel-container');
+
+function renderCalendar() {
+  calendar.innerHTML = '';
+  days.forEach(function(d, i) {
+    var ts = tagStyles[d.tag];
+    var isActive = selected === i;
+    var card = document.createElement('div');
+    card.className = 'day-card' + (isActive ? ' active' : '');
+    if (isActive) { card.style.background = d.color+'18'; card.style.borderColor = d.color; }
+    card.innerHTML = (isActive ? '<div class="glow-bar" style="background:linear-gradient(90deg,transparent,'+d.color+',transparent)"></div>' : '')
+      + '<div class="day-label" style="'+(isActive?'color:'+d.color:'')+'">'+d.day+'</div>'
+      + '<div class="day-tag" style="background:'+ts.bg+';border:1px solid '+ts.border+';color:'+ts.text+'">'+d.tag+'</div>'
+      + '<div style="font-size:20px">'+(d.type==='gym'?'&#127947;':d.type==='run'?'&#127939;':'&#128564;')+'</div>'
+      + '<div class="day-name" style="'+(isActive?'color:#fff':'')+'">'+d.label+'</div>';
+    card.addEventListener('click', function() {
+      selected = isActive ? null : i;
+      if (!isActive) showAlt = false;
+      renderCalendar();
+      renderPanel();
+    });
+    calendar.appendChild(card);
+  });
+}
+
+function renderPanel() {
+  if (selected === null) {
+    panelContainer.innerHTML = '<div class="empty-hint">tap a day to see your workout</div>';
+    return;
+  }
+  var d = days[selected];
+  var isAlt = showAlt && d.alt;
+  var view = isAlt ? d.alt : d;
+  var color = isAlt ? '#a78bfa' : d.color;
+
+  var tabMain = '<button id="tab-main" style="font-family:\'DM Mono\',monospace;font-size:11px;padding:6px 14px;border-radius:8px;border:1px solid '+(!isAlt?d.color:'#333')+';background:'+(!isAlt?d.color+'22':'transparent')+';color:'+(!isAlt?d.color:'#555')+';cursor:pointer;letter-spacing:1px;">Main Plan</button>';
+  var tabAlt = d.alt ? '<button id="tab-alt" style="font-family:\'DM Mono\',monospace;font-size:11px;padding:6px 14px;border-radius:8px;border:1px solid '+(isAlt?'#a78bfa':'#333')+';background:'+(isAlt?'#a78bfa22':'transparent')+';color:'+(isAlt?'#a78bfa':'#555')+';cursor:pointer;letter-spacing:1px;">30-Min Alt</button>' : '';
+
+  panelContainer.innerHTML = '<div class="panel visible" style="border:1.5px solid '+color+'40">'
+    + '<div style="position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,'+color+','+color+'33);border-radius:18px 18px 0 0"></div>'
+    + '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px">'
+    + '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">'+tabMain+tabAlt+'</div>'
+    + '<button class="close-btn" id="close-panel">&#215;</button>'
+    + '</div>'
+    + '<div style="font-size:20px;font-weight:800;margin-bottom:3px">'+(view.title||d.title)+'</div>'
+    + '<div style="font-family:\'DM Mono\',monospace;font-size:12px;color:#555;letter-spacing:1px;margin-bottom:14px">'+(view.subtitle||d.subtitle)+'</div>'
+    + '<div style="margin-bottom:18px">'+buildRows(view.exercises, color)+'</div>'
+    + '<div class="tip-box" style="background:'+color+'10;border:1px solid '+color+'25">'
+    + '<span>&#128161;</span>'
+    + '<div style="font-family:\'DM Mono\',monospace;font-size:12px;color:#777;line-height:1.6">'+(view.tip||d.tip)+'</div>'
+    + '</div></div>';
+
+  document.getElementById('close-panel').addEventListener('click', function(){selected=null;showAlt=false;renderCalendar();renderPanel();});
+  document.getElementById('tab-main').addEventListener('click', function(){showAlt=false;renderPanel();});
+  var ab = document.getElementById('tab-alt');
+  if (ab) ab.addEventListener('click', function(){showAlt=true;renderPanel();});
+}
+
+renderWizard();
+renderCalendar();
+renderPanel();
+</script>
+
+</body>
+</html>
