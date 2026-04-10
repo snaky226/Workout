@@ -19,7 +19,9 @@
   .day-tag { font-family: 'DM Mono', monospace; font-size: 8px; letter-spacing: 1.5px; padding: 2px 6px; border-radius: 4px; }
   .day-name { font-weight: 700; font-size: 10px; color: #777; text-align: center; line-height: 1.3; }
   .glow-bar { position: absolute; top: 0; left: 0; right: 0; height: 2px; border-radius: 14px 14px 0 0; }
-  .exercise-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #ffffff0d; gap: 8px; }
+  .exercise-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #ffffff0d; gap: 8px; transition: background 0.15s, padding 0.1s; border-radius: 8px; }
+  .exercise-row.clickable { cursor: pointer; }
+  .exercise-row.clickable:hover { background: #ffffff08; padding-left: 8px; padding-right: 6px; margin: 0 -8px; width: calc(100% + 16px); }
   .exercise-row:last-child { border-bottom: none; }
   .panel { background: #111116; border-radius: 18px; padding: 24px 28px; position: relative; overflow: hidden; animation: slideUp 0.3s cubic-bezier(.4,2,.55,1) forwards; display: none; }
   .panel.visible { display: block; }
@@ -32,14 +34,48 @@
   .grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; }
   .wbtn { font-family: 'DM Mono', monospace; font-size: 12px; padding: 10px 20px; border-radius: 10px; cursor: pointer; letter-spacing: 1px; white-space: nowrap; border-width: 1.5px; border-style: solid; transition: opacity 0.15s; }
   .wbtn:hover { opacity: 0.75; }
+
+  /* ── MODAL ── */
+  #ex-modal-overlay {
+    display: none; position: fixed; inset: 0; z-index: 1000;
+    background: rgba(0,0,0,0.75); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+    align-items: center; justify-content: center; padding: 20px;
+  }
+  #ex-modal-overlay.open { display: flex; }
+  #ex-modal {
+    background: #15151c; border: 1.5px solid #2a2a3a; border-radius: 20px;
+    padding: 28px; max-width: 460px; width: 100%;
+    position: relative; max-height: 88vh; overflow-y: auto;
+    animation: modalIn 0.22s cubic-bezier(.4,2,.55,1) forwards;
+  }
+  @keyframes modalIn { from { opacity:0; transform:scale(0.93) translateY(14px); } to { opacity:1; transform:scale(1) translateY(0); } }
+  #ex-modal .mcls {
+    position: absolute; top: 16px; right: 16px; background: #ffffff12;
+    border: none; color: #aaa; border-radius: 50%; width: 30px; height: 30px;
+    cursor: pointer; font-size: 18px; display: flex; align-items: center; justify-content: center;
+  }
+  #ex-modal .mcls:hover { background: #ffffff22; color: #fff; }
+  .how-step { display: flex; gap: 12px; align-items: flex-start; padding: 10px 0; border-bottom: 1px solid #ffffff07; }
+  .how-step:last-child { border-bottom: none; }
+  .snum { font-family: 'DM Mono', monospace; font-size: 11px; min-width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 1px; font-weight: 600; }
+
   @media (max-width: 600px) {
     .grid { grid-template-columns: repeat(4, 1fr); }
     .panel { padding: 18px 16px; }
     .wbtn { font-size: 11px; padding: 8px 14px; }
+    #ex-modal { padding: 20px 16px; }
   }
 </style>
 </head>
 <body>
+
+<!-- Exercise description modal -->
+<div id="ex-modal-overlay">
+  <div id="ex-modal">
+    <button class="mcls" id="mcls">&#215;</button>
+    <div id="modal-body"></div>
+  </div>
+</div>
 
 <div style="padding:40px 24px 20px;max-width:860px;margin:0 auto;">
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:6px;">
@@ -74,6 +110,77 @@
 </div>
 
 <script>
+// ── DESCRIPTIONS ───────────────────────────────────────────
+var exDesc = {
+  "Bench Press": ["Lie flat on the bench, grip the bar just wider than shoulder-width. Pull your shoulder blades together and down — this creates a stable base and protects your shoulders.","Lower the bar to your mid-chest with control, keeping your elbows at roughly 45° from your body. Don't flare them straight out.","Press back up explosively to full lockout. Keep your feet flat on the floor and a slight arch in your lower back throughout."],
+  "Overhead Press": ["Stand with feet shoulder-width apart, bar resting on your front delts and upper chest. Brace your core and glutes hard before every single rep.","Press the bar straight up — tuck your head back slightly as it passes your face. Finish with the bar directly over your ears and arms fully locked.","Lower under control back to the start. Avoid using your legs to assist — strict form is the whole point here."],
+  "Incline DB Press": ["Set the bench to 30–45°. Hold a dumbbell in each hand at shoulder height, palms facing forward, elbows below the hands.","Press up and slightly inward so the dumbbells nearly touch at the top. Feel the upper chest doing the work.","Lower slowly — 2-3 seconds down — until you feel a good stretch across your upper chest. Don't let the dumbbells drop or bounce."],
+  "Lateral Raises": ["Stand tall with a slight bend in your elbows. Think of pouring water from a jug — lead with your elbows, not your hands or wrists.","Raise the dumbbells out to your sides until your arms are parallel to the floor. No higher — going above parallel shifts the load off your delts.","Lower slowly over 2-3 seconds. Avoid shrugging your traps. The burn you feel in your outer shoulders is exactly what you want."],
+  "Tricep Pushdowns": ["Stand facing the cable machine, grip the bar or rope. Lean very slightly forward at the hips.","Pin your elbows to your sides — they must not move at all during the rep. Push the bar down until your arms are fully extended.","Squeeze the triceps hard at the bottom for 1 second, then let the cable slowly pull your hands back up. All movement from the elbow only."],
+  "DB Bench Press": ["Lie flat on the bench with a dumbbell in each hand at chest level, palms facing your feet. Feet flat on the floor.","Press both dumbbells up simultaneously. They travel in a slight arc, nearly touching at the top.","Lower them under control — stop when you feel a good chest stretch (elbows roughly at 90°). Don't let them drop past that point."],
+  "DB Shoulder Press": ["Sit or stand with dumbbells at ear height, palms facing forward or slightly inward. Brace your core.","Press them upward and slightly inward until your arms are fully extended. Controlled movement — no slamming at the top.","Lower slowly back to the start. Avoid excessively arching your lower back to push the weight up."],
+  "Bioforce Chest Fly": ["Set the Bioforce cables at chest height. Stand in the middle with one handle in each hand, arms open wide with a slight bend in your elbows.","Bring your hands together in front of your chest in a wide hugging arc — like wrapping your arms around a tree. Squeeze your pecs hard when they meet.","Slowly return to the start — resist the pull, don't just release. The stretch at the end of each rep is where chest growth happens."],
+  "DB Lateral Raises": ["Stand tall, dumbbells at your sides, a slight bend in your elbows. This is the same movement as barbell lateral raises.","Raise the dumbbells out to the sides to shoulder height, leading with your elbows. No swinging or momentum — pure muscle.","Lower in a controlled 2-3 second descent every rep. Keep the movement clean and deliberate."],
+  "Bioforce Tricep Pushdown": ["Attach a rope or handle to the high Bioforce anchor. Stand facing it with your elbows at your sides, bent at 90°.","Push the handle straight down until your arms are fully extended. Squeeze your triceps hard at the bottom of each rep.","Let the cable pull your hands slowly back up to the start position. If your elbows drift upward, the resistance is too high."],
+  "Push-ups": ["Hands slightly wider than shoulder-width, body in a rigid straight line from head to heels. Brace your core like you're about to take a punch.","Lower your chest toward the floor, keeping your elbows at roughly 45° from your body. Stop just above the floor.","Press back up explosively. If your hips sag or your back arches excessively, drop to your knees rather than grinding through bad reps."],
+  "Pike Push-ups": ["Start in a downward-dog position — hips high, body forming a V shape, hands shoulder-width apart.","Bend your elbows and lower the top of your head toward the floor between your hands. Let your elbows flare out to the sides.","Press back up to the V position. The more vertical your torso, the more this mimics an overhead press."],
+  "Diamond Push-ups": ["Place your hands close together directly under your chest, forming a diamond (or triangle) shape with your thumbs and index fingers.","Lower your chest straight down to your hands, keeping your elbows close and parallel to your body.","Press back up to full extension. You'll feel an intense burn in your triceps — that's the whole point."],
+  "Chair Dips": ["Grip the edge of a sturdy chair with your hands, fingers pointing forward. Extend your legs out in front, heels on the floor.","Lower your body by bending your elbows to roughly 90°. Keep your back close to the chair throughout.","Press back up to the start. Don't dip too deeply — stopping at 90° is enough and protects your shoulder joints."],
+  "Shoulder Taps": ["Start in a high push-up position with arms fully extended. Place your feet slightly wider than usual for better stability.","Lift one hand and tap the opposite shoulder. Place it back, then immediately repeat on the other side.","The challenge is keeping your hips completely square and still throughout — resist all rotation. Move deliberately, not fast."],
+  "Barbell Row": ["Stand with feet shoulder-width apart, hinge forward to roughly 45°, bar hanging at arm's length with an overhand grip.","Pull the bar to your lower chest or upper stomach, driving your elbows back hard. Squeeze your shoulder blades together at the top.","Lower under full control — don't just drop the weight. Keep your back flat throughout. Rounding your lower back means the weight is too heavy."],
+  "Pull-ups / Lat Pulldown": ["Pull-ups: hang from the bar with an overhand grip slightly wider than shoulders, arms fully extended. Lat pulldown: sit facing the machine with a wide grip.","Pull your chest to the bar (or pull the bar to your chest) by driving your elbows down and back toward your hips. Think 'elbows to back pockets'.","Lower fully — arms completely extended — before each new rep. Partial reps limit your lat development significantly."],
+  "Dips": ["Grip the parallel bars with arms fully extended, feet crossed behind you.","Lean slightly forward to emphasise your chest, or stay more upright to focus on triceps. Lower until your elbows reach 90°.","Press back up to full lockout. If you can't reach 90° yet, use a reduced range of motion and build up gradually over weeks."],
+  "DB Shrugs": ["Hold a heavy dumbbell in each hand at your sides, arms hanging straight down.","Shrug your shoulders straight up toward your ears as high as they'll go. Hold the top position for a full second.","Lower slowly. Move straight up and down only — avoid rolling your shoulders, which adds unnecessary rotational stress to the joint."],
+  "Bioforce Lat Pulldown": ["Sit or kneel facing the high Bioforce anchor. Hold the handle with both arms extended overhead, creating tension.","Pull the handle down to your upper chest, driving your elbows toward your hips. Squeeze your lats hard at the bottom.","Let your arms rise back up slowly until fully extended. Feel the lat stretch at the top before initiating the next pull."],
+  "Bioforce Seated Row": ["Sit on the floor facing the low Bioforce anchor, knees slightly bent. Hold the handle with arms extended, feeling the tension.","Row the handle to your lower chest or stomach, driving your elbows back hard. Pause at the end and squeeze your shoulder blades together.","Slowly return until your arms are fully extended — feel the stretch across your back before the next rep."],
+  "DB Incline Press": ["Set the bench to 30–45° incline. Hold dumbbells at shoulder height, elbows below your hands.","Press upward and slightly inward. The upper chest and front deltoids do most of the work at this angle.","Lower slowly with control. Keep your elbows at roughly 45–60° from your torso — don't flare them wide."],
+  "Table Rows": ["Lie underneath a sturdy table, grip the edge with both hands, legs extended straight. Your body should form a rigid plank facing the ceiling.","Pull your chest up to the table edge, driving your elbows back and squeezing your shoulder blades together at the top.","Lower back down under control. The more horizontal your body, the harder it is. Bend your knees slightly to make it easier."],
+  "Superman Hold": ["Lie face down on the floor, arms extended forward above your head like Superman flying.","Simultaneously lift your arms, chest, and legs off the ground as high as you can. Squeeze your glutes and back muscles hard.","Hold the position while breathing steadily. Lower slowly. Great for lower back strength and glute activation."],
+  "Seated Cable Row": ["Sit at the cable row machine, feet on the pads with a slight bend in your knees. Hold the handle with arms extended, sitting tall.","Pull the handle to your stomach, driving your elbows back and squeezing your shoulder blades together at the end.","Slowly extend back out — don't round your lower back at the end. The forward reach is part of the rep."],
+  "Face Pulls": ["Set the cable or Bioforce at face height. Grab the rope with both hands and step back until there's good tension.","Pull the handles toward your face, flaring your elbows wide and high. At the peak your hands should be beside your ears.","This is a shoulder health movement — keep the weight light enough for clean form. Never rush or go heavy with face pulls."],
+  "Bioforce Face Pulls": ["Set the Bioforce anchor at roughly face height. Step back with both hands on the handle until there's tension.","Pull the handle toward your forehead, elbows flaring out wide. Externally rotate at the end so your hands finish beside your ears.","Every rep slow and deliberate — this is a shoulder health exercise. Form matters far more than resistance here."],
+  "Barbell Curl": ["Stand holding the barbell with an underhand grip, hands shoulder-width apart, arms fully extended.","Keep your elbows pinned to your sides — they are the only joint that moves. Curl the bar up toward your chin.","Lower slowly to a full stretch at the bottom. Never swing your torso — if you need to, the weight is too heavy."],
+  "Single-Arm DB Row": ["Place one knee and the same-side hand on a bench for support. Back should be flat and parallel to the floor. Dumbbell hanging in the other hand.","Row the dumbbell up to your hip, driving your elbow back toward the ceiling. Keep your back flat and avoid twisting your torso.","Lower with full control. Avoid rotating — your working shoulder can rise slightly but keep your hips square."],
+  "Bioforce Face Pulls": ["Set the Bioforce anchor at face height. Step back to create cable tension with both hands on the handle.","Pull toward your forehead with elbows flaring wide. At peak contraction, externally rotate so your hands are beside your ears.","Always slow and deliberate. This builds rear delt and rotator cuff strength — key for shoulder health and pressing performance."],
+  "DB Hammer Curl": ["Hold dumbbells with a neutral grip — palms facing each other, like holding a pair of hammers. Arms hanging at sides.","Curl both arms up simultaneously, keeping your elbows pinned and your wrists neutral throughout — don't rotate them.","Lower slowly to a full stretch. This grip targets the brachialis (outer upper arm) and brachioradialis (forearm), adding thickness to your arms."],
+  "Hammer Curls": ["Hold dumbbells with palms facing each other throughout the entire movement — neutral grip, like hammers.","Curl up with elbows pinned, lower slowly. Move both arms together or alternate.","The neutral grip builds the brachialis underneath the bicep, which pushes the bicep up and adds visible arm width."],
+  "Reverse Snow Angels": ["Lie face down on the floor, arms at your sides with palms facing down.","Keeping your arms straight and off the floor, sweep them up and overhead in a wide arc — like making a snow angel in reverse.","Keep your arms elevated the entire time. This activates the rear deltoids and mid-back muscles that are chronically weak in most people."],
+  "Towel Bicep Curls": ["Stand on the middle of a folded towel, holding one end in each hand, arms at your sides.","Attempt to curl your hands up toward your shoulders, pulling against the resistance of your foot anchoring the towel.","Control the full range — squeeze at the top, resist on the way down. Much harder than it looks for a zero-equipment exercise."],
+  "Dead Hangs": ["Jump up and grip a bar, door-frame pull-up bar, or sturdy branch with both hands shoulder-width apart.","Let your body hang fully — relax your shoulders and decompress your spine. Don't actively pull yourself up at all.","Builds grip strength, decompresses your vertebrae, and passively stretches your lats and shoulders. Hold as long as comfortable."],
+  "Light walk": ["An easy-paced walk, ideally outdoors. This is active recovery — keep it comfortable enough that you could hold a full conversation.","Aim for 20–30 minutes at a pace where your heart rate stays low. This helps flush metabolic waste from your muscles.","If you feel like you need a faster pace, you're working too hard. Today's job is blood flow and recovery, not effort."],
+  "Box Breathing": ["Breathe in slowly through your nose for exactly 4 seconds. Fill your lungs completely from the bottom up.","Hold your breath for 4 seconds — relax your shoulders and jaw completely during the hold.","Exhale slowly for 4 seconds, then hold empty for 4 seconds. Repeat for 5 minutes. This activates your parasympathetic nervous system, lowers cortisol, and speeds up recovery."],
+  "Mobility work": ["Hip flexors: hold a deep lunge stretch for 40 seconds each side. Thoracic spine: cat-cow on all fours, 10 slow reps. Shoulders: cross-body stretch, 30 seconds each.","Move gently into each position — no bouncing or forcing. Sustained mild tension is far more effective than aggressive stretching.","Do this every rest day and you'll notice your lifting form improve meaningfully within a few weeks."],
+  "Barbell Squat": ["Place the bar on your upper traps, feet shoulder-width apart, toes turned out 15–30°. Take a big breath and brace your core hard before each rep.","Sit back and down simultaneously — don't just bend your knees. Keep your chest tall and knees tracking over your toes at all times.","Drive through your heels to stand, pushing your knees out as you rise. Aim for thighs parallel or below — depth matters for full quad development."],
+  "Romanian Deadlift": ["Hold the bar at hip height with an overhand grip, feet hip-width apart. Maintain a soft bend in your knees throughout the entire movement.","Push your hips back and lower the bar along your legs, keeping it close to your body. Your back stays flat — hinge at the hips, not the spine.","Drive your hips forward to return to standing. At the bottom you should feel a strong stretch in your hamstrings — that's the signal."],
+  "Leg Press": ["Sit in the machine, feet shoulder-width on the platform. Lower placement hits quads; higher placement shifts more to glutes and hamstrings.","Lower the weight slowly until your knees reach roughly 90° — never let your lower back round off the seat.","Press through your heels back to the start. Don't fully lock your knees at the top — keep slight tension in your legs."],
+  "Walking Lunges": ["Hold dumbbells at your sides. Step forward with one foot and lower your back knee toward (but not touching) the floor.","Your front knee should stay at 90° and remain directly over your ankle — don't let it drift forward or cave inward.","Push through your front heel to bring your rear foot forward into the next step. Keep your torso upright throughout."],
+  "Hanging Leg Raises": ["Hang from a pull-up bar with arms fully extended. Engage your core and pull your shoulders down before moving.","Raise your legs (straight or slightly bent) until they're parallel to the floor or higher. Initiate from your abs — don't swing or use momentum.","Lower slowly — 3 seconds down. The descent is where the abs work hardest. Never just drop your legs."],
+  "DB Goblet Squat": ["Hold one dumbbell vertically at your chest with both hands, cupping the top end. Feet shoulder-width apart, toes slightly out.","Squat down keeping the dumbbell close to your chest. Your elbows should come inside your knees at the bottom of the squat.","Drive back up through your heels. Goblet squats naturally encourage an upright torso and good depth — perfect for building squat mechanics."],
+  "DB Romanian Deadlift": ["Hold a dumbbell in each hand in front of your thighs, standing tall with a soft knee bend.","Push your hips back and lower the dumbbells along your legs, keeping a flat back and neutral spine throughout.","Drive your hips forward to return. A slow eccentric — 3 seconds down — maximizes hamstring time under tension."],
+  "Bulgarian Split Squat": ["Place your rear foot on the bench behind you, top of the foot facing down. Step your front foot far enough forward that your shin stays vertical at the bottom.","Hold dumbbells at your sides and lower your back knee toward the floor. Keep your torso upright and front knee from caving inward.","Press through your front heel to stand. This exercise is brutally effective — you'll be humbled by a weight that seems easy in your hands."],
+  "DB Step-ups": ["Hold dumbbells at your sides. Stand facing the bench or box.","Step one foot fully onto the bench and push through that heel to lift your entire body up. Bring the other foot up to meet it.","Step back down in a controlled way. Do all reps on one leg before switching. Avoid pushing off your back foot — let the working leg do the lift."],
+  "Bioforce Woodchop": ["Set the Bioforce anchor low on one side. Stand sideways to it, grasping the handle with both hands at hip height.","Pull the handle diagonally across your body from low to high, like reversing a wood-chopping motion. Rotate through your hips and core.","The power comes from your torso rotation, not your arms. Control the return slowly — don't just let the cable snap back."],
+  "Plank": ["Forearms on the floor, elbows directly under your shoulders, toes on the ground. Look straight at the floor.","Keep your body in a perfectly straight line — don't let your hips sag or pike up. Squeeze your glutes and abs actively.","Breathe steadily. When your form breaks, stop and rest. A 30-second perfect plank beats a 60-second sagging one every single time."],
+  "Jump Squats": ["Stand with feet shoulder-width apart. Squat down to at least parallel with your arms swinging back for momentum.","Explode upward as powerfully as you can, swinging your arms forward to help drive the jump.","Land softly by bending your knees immediately on contact — never land stiff-legged. Go straight into the next rep to build explosive power."],
+  "Bulgarian Split Squats": ["Same mechanics as the DB Bulgarian Split Squat but using just your bodyweight. Place your rear foot on a chair or bench.","Step your front foot forward. Lower your back knee toward the floor and press back up through your front heel.","Use your arms for counterbalance if needed. This version is still challenging — you'll feel your quads and glutes working hard."],
+  "Glute Bridges": ["Lie on your back, knees bent at about 90°, feet flat on the floor hip-width apart. Arms flat at your sides.","Drive your hips up by squeezing your glutes hard. Your body should form a straight line from your knees to your shoulders at the top.","Hold for 1 full second at the top — max squeeze. Lower slowly. This should be all glutes, not lower back."],
+  "Wall Sit": ["Stand with your back flat against a wall. Walk your feet out about 60cm and slowly slide down.","Stop when your thighs are parallel to the floor and knees are at 90°. Keep your back fully in contact with the wall.","Hold the position. Resist pushing off with your hands on your thighs. When your legs give out, note the time and try to beat it next week."],
+  "Bicycle Crunches": ["Lie on your back, hands lightly behind your head. Do not pull on your neck. Legs up, bent at 90°.","Bring one knee toward your chest while rotating your opposite elbow toward it. Switch sides in a smooth cycling motion.","Move slowly — 1 full second each side. The goal is oblique engagement and spinal rotation, not speed."],
+  "Skull Crushers": ["Lie flat on a bench holding a barbell or EZ bar above your chest, arms perpendicular to the floor.","Lower the bar toward your forehead by bending only your elbows. Your upper arms stay completely vertical — they don't move at all.","Press back up to the start by extending at the elbows. If the bar drifts toward your head as you fatigue, the weight is too heavy."],
+  "Overhead Tricep Extension": ["Hold a dumbbell or barbell overhead with both hands, arms fully extended.","Lower the weight behind your head by bending your elbows. They should point straight forward throughout — don't let them flare out.","Press back up to full extension. This position gives a maximal stretch on the long head of the tricep, which makes up most of arm size."],
+  "Ab Wheel / Hanging Leg Raises": ["Ab wheel: kneel on the floor gripping the handles. Roll forward as far as you can while keeping a flat back, then pull back with your abs. Hanging: hang from a bar with arms extended.","For both: brace your core fully before initiating the movement. For leg raises, lift to parallel or higher without swinging.","The return or lowering phase is where your abs work hardest. Never rush it."],
+  "DB Curl": ["Hold dumbbells at your sides, palms facing forward. Stand tall with your elbows pinned at your sides.","Curl both dumbbells up toward your shoulders. Supinate your wrists — rotate them so your pinky faces up at the top for a peak contraction.","Lower fully each rep, getting a complete stretch at the bottom. You can alternate arms or move both together."],
+  "Bioforce Overhead Tricep Ext": ["Face away from the Bioforce anchor with it set at the lowest position. Grab the handle with both hands and raise it overhead, arms extended.","Bend your elbows to lower the handle behind your head. Keep your elbows pointing straight forward — they're the hinge.","Press back up to full arm extension. You'll feel a deep stretch in the long head of your tricep at the bottom of each rep."],
+  "V-Sit Hold": ["Sit on the floor, lean back slightly from vertical, and lift both legs off the ground. Knees can be bent or straight.","Balance on your tailbone with your body forming a V shape. Hold your arms out in front for counterbalance.","Squeeze your abs to maintain the position. If your lower back strains, bend your knees to reduce the lever arm."],
+  "Meal prep": ["Cook your proteins in bulk today: baked chicken breast, hard-boiled eggs, or ground beef. Portion into containers with carbs and vegetables.","Aim for 130–140g of protein per day — that's roughly 2.2g per kg of your bodyweight. Spread it across 4–5 meals.","Top sources: chicken breast (~31g/100g), Greek yogurt (~10g/100g), eggs (~6g each), tuna (~28g/100g), cottage cheese (~12g/100g)."],
+  "Sleep 8h": ["Growth hormone peaks during deep sleep — your muscles literally grow while you sleep. This is non-negotiable for strength progress.","Set a consistent bedtime and wake time, even on weekends. Sleep consistency matters more than raw hours.","Keep your room dark and cool (around 18°C is optimal). Avoid screens 30–60 minutes before bed — blue light delays sleep onset."],
+  "Light stretching": ["Quad stretch: stand on one leg, pull the other foot to your glute, hold 30 seconds each side.","Hip flexors: low lunge hold, 40 seconds each side. Shoulder: cross-body stretch, 30 seconds each.","Hold everything gently — no bouncing. Breathe into each stretch and try to relax further on each exhale. 10 minutes here pays off for weeks."],
+  "Bench Press (Bonus)": ["Lighter variation of Monday's bench. Same setup — lie flat, bar at mid-chest, feet flat, shoulder blades packed.","Use about 80% of your Monday weight. The goal here is movement quality and blood flow, not a personal record.","Focus on feeling your chest muscles working throughout the full range. Perfect reps matter more than load on a bonus day."],
+  "Pull-ups or Lat Pulldown": ["Pull-ups: hang fully, pull your chest toward the bar, lower all the way down each rep. Lat pulldown: pull bar to your upper chest, extend fully at the top.","On a bonus day, keep intensity moderate — stop 2–3 reps before failure. The goal is practice and blood flow.","This session should feel comfortably challenging, not maximal. Save your energy for Friday's leg session."],
+  "Dumbbell Shoulder Press": ["Sit or stand with dumbbells at ear height. Press up until fully extended, lower with control. Same movement as the main workout.","On a bonus day, use a weight you could do for 15 reps comfortably. This is accessory volume, not max effort.","Keep your core braced and avoid arching your lower back. Clean reps at moderate weight beats grinding heavy today."]
+};
+
+// ── WORKOUT DATA ───────────────────────────────────────────
 var days = [
   {
     day:"MON", label:"Monday", type:"gym", color:"#FF6B35", title:"Push Day",
@@ -182,7 +289,7 @@ var days = [
     tip:"Muscles grow on rest days. Keep it easy — today's job is recovery.",
     alt:{title:"Gym Bonus Day", subtitle:"Since you're there — keep it moderate",
       exercises:[
-        {name:"Bench Press", sets:"3 x 8-10", note:"Lighter than Monday", weight:"35-45 kg"},
+        {name:"Bench Press (Bonus)", sets:"3 x 8-10", note:"Lighter than Monday", weight:"35-45 kg"},
         {name:"Pull-ups or Lat Pulldown", sets:"3 x 8-10", note:"", weight:"Bodyweight / 35 kg"},
         {name:"Dumbbell Shoulder Press", sets:"3 x 10-12", note:"", weight:"10-14 kg each"},
         {name:"Plank", sets:"3 x 45s", note:"", weight:"Bodyweight"}
@@ -235,7 +342,7 @@ var days = [
       {name:"Ab Wheel / Hanging Leg Raises", sets:"3 x 12-15", note:"Controlled — slow on the way down", weight:"Bodyweight"},
       {name:"Plank", sets:"3 x 60s", note:"Squeeze everything", weight:"Bodyweight"}
     ],
-    tip:"Arms respond well to volume — keep rest short (60s) and focus on the squeeze. Great day to also do a 20-min easy walk after.",
+    tip:"Arms respond well to volume — keep rest short (60s) and focus on the squeeze.",
     homegym:{title:"Home Gym Arms + Core", subtitle:"Dumbbells · Bioforce",
       exercises:[
         {name:"DB Curl", sets:"4 x 10-12", note:"Alternate arms, supinate at top", weight:"10-14 kg each"},
@@ -263,7 +370,7 @@ var days = [
     day:"SUN", label:"Sunday", type:"rest", color:"#888888", title:"Full Rest",
     subtitle:"Recovery / Recharge", tag:"REST",
     exercises:[
-      {name:"Meal prep", sets:"Recommended", note:"Hit 150-160g protein/day", weight:""},
+      {name:"Meal prep", sets:"Recommended", note:"Hit 130-140g protein/day", weight:""},
       {name:"Sleep 8h", sets:"Non-negotiable", note:"This is when you actually grow", weight:""},
       {name:"Light stretching", sets:"Optional 10 min", note:"Nothing intense", weight:""}
     ],
@@ -276,124 +383,164 @@ var tagStyles = {
   RUN:  {bg:"#00D4FF22",border:"#00D4FF55",text:"#00D4FF"},
   REST: {bg:"#88888822",border:"#88888855",text:"#aaa"}
 };
-
 var HOME_COLOR = "#4ade80";
 var ALT_COLOR  = "#a78bfa";
 
+// ── MODAL ─────────────────────────────────────────────────
+var overlay  = document.getElementById('ex-modal-overlay');
+var modalBody = document.getElementById('modal-body');
+var modalEl  = document.getElementById('ex-modal');
+
+document.getElementById('mcls').addEventListener('click', closeModal);
+overlay.addEventListener('click', function(e){ if(e.target===overlay) closeModal(); });
+document.addEventListener('keydown', function(e){ if(e.key==='Escape') closeModal(); });
+
+function closeModal() { overlay.classList.remove('open'); }
+
+function openModal(ex, color) {
+  var steps = exDesc[ex.name] || null;
+  var html = '<div style="position:absolute;top:0;left:0;right:0;height:3px;border-radius:20px 20px 0 0;background:linear-gradient(90deg,'+color+','+color+'33)"></div>';
+  html += '<div style="font-family:\'DM Mono\',monospace;font-size:10px;color:'+color+';letter-spacing:2px;margin-bottom:8px;margin-top:4px;">HOW TO DO IT</div>';
+  html += '<div style="font-size:19px;font-weight:800;line-height:1.2;margin-bottom:12px;padding-right:36px">'+ex.name+'</div>';
+  html += '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px">';
+  html += '<span class="sets-badge" style="color:'+color+';background:'+color+'15">'+ex.sets+'</span>';
+  if (ex.weight) html += '<span class="sets-badge" style="color:#aaa;background:#ffffff0a;font-size:11px">'+ex.weight+'</span>';
+  html += '</div>';
+
+  if (steps && steps.length) {
+    steps.forEach(function(step, i) {
+      html += '<div class="how-step">'
+        + '<div class="snum" style="background:'+color+'18;color:'+color+';border:1px solid '+color+'35">'+(i+1)+'</div>'
+        + '<div style="font-family:\'DM Mono\',monospace;font-size:12px;color:#888;line-height:1.75">'+step+'</div>'
+        + '</div>';
+    });
+  } else if (ex.note) {
+    html += '<div style="font-family:\'DM Mono\',monospace;font-size:12px;color:#666;line-height:1.7;padding:8px 0">'+ex.note+'</div>';
+  } else {
+    html += '<div style="font-family:\'DM Mono\',monospace;font-size:12px;color:#444;padding:8px 0">No description available.</div>';
+  }
+
+  if (ex.note && steps) {
+    html += '<div style="margin-top:16px;padding:10px 14px;background:#ffffff05;border-radius:8px;border-left:3px solid '+color+'50">'
+      + '<div style="font-family:\'DM Mono\',monospace;font-size:10px;color:'+color+';letter-spacing:1.5px;margin-bottom:4px;">COACHS NOTE</div>'
+      + '<div style="font-family:\'DM Mono\',monospace;font-size:12px;color:#555;line-height:1.6">'+ex.note+'</div></div>';
+  }
+
+  modalBody.innerHTML = html;
+  modalEl.style.borderColor = color + '44';
+  overlay.classList.add('open');
+  modalEl.scrollTop = 0;
+}
+
+// ── BUILD ROWS ────────────────────────────────────────────
 function buildRows(exercises, color) {
-  return exercises.map(function(ex) {
-    return '<div class="exercise-row">'
-      + '<div style="display:flex;align-items:center;gap:10px;flex:1">'
+  return exercises.map(function(ex, idx) {
+    var hasDesc = !!(exDesc[ex.name]);
+    return '<div class="exercise-row'+(hasDesc?' clickable':'')+'" data-ex-idx="'+idx+'">'
+      + '<div style="display:flex;align-items:center;gap:10px;flex:1;min-width:0">'
       + '<div style="width:6px;height:6px;border-radius:50%;background:'+color+';flex-shrink:0"></div>'
-      + '<div><div style="font-weight:600;font-size:14px;color:#ddd">'+ex.name+'</div>'
+      + '<div style="min-width:0"><div style="font-weight:600;font-size:14px;color:#ddd;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+ex.name+'</div>'
       + (ex.note ? '<div style="font-family:\'DM Mono\',monospace;font-size:11px;color:#444;margin-top:2px">'+ex.note+'</div>' : '')
       + '</div></div>'
       + '<div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0">'
       + '<div class="sets-badge" style="color:'+color+';background:'+color+'15">'+ex.sets+'</div>'
       + (ex.weight ? '<div class="sets-badge" style="color:#aaa;background:#ffffff0a;font-size:11px">'+ex.weight+'</div>' : '')
+      + (hasDesc ? '<div style="font-family:\'DM Mono\',monospace;font-size:9px;color:'+color+'55;letter-spacing:1px;margin-top:1px">HOW TO ›</div>' : '')
       + '</div></div>';
   }).join('');
 }
 
-// ── TODAY DISPLAY ─────────────────────────────────────────
+function attachRows(containerEl, exercises, color) {
+  containerEl.querySelectorAll('.exercise-row.clickable').forEach(function(row) {
+    var idx = parseInt(row.getAttribute('data-ex-idx'), 10);
+    row.addEventListener('click', function(e) {
+      e.stopPropagation();
+      openModal(exercises[idx], color);
+    });
+  });
+}
+
+// ── TODAY ─────────────────────────────────────────────────
 var dayNames = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
 var todayName = dayNames[new Date().getDay()];
 var todayData = days.filter(function(d){return d.label===todayName;})[0] || days[0];
 
 function renderToday() {
   var tc = document.getElementById('today-content');
-  var d = todayData;
-  var color = d.color;
-  var hdr = '<div style="font-family:\'DM Mono\',monospace;font-size:11px;color:#555;letter-spacing:2px;margin-bottom:10px;">TODAY &middot; '+todayName.toUpperCase()+'</div>';
-
-  tc.innerHTML = hdr
-    + '<div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px;margin-bottom:14px;">'
-    + '<div>'
-    + '<div style="font-size:20px;font-weight:800;margin-bottom:2px">'+d.title+'</div>'
-    + '<div style="font-family:\'DM Mono\',monospace;font-size:11px;color:'+color+'">'+d.subtitle+'</div>'
-    + '</div>'
-    + '</div>'
-    + '<div style="margin-bottom:16px">'+buildRows(d.exercises, color)+'</div>'
-    + '<div class="tip-box" style="background:'+color+'10;border:1px solid '+color+'25">'
-    + '<span>&#128161;</span>'
-    + '<div style="font-family:\'DM Mono\',monospace;font-size:12px;color:#777;line-height:1.6">'+d.tip+'</div>'
-    + '</div>';
+  var d = todayData, color = d.color;
+  tc.innerHTML = '<div style="font-family:\'DM Mono\',monospace;font-size:11px;color:#555;letter-spacing:2px;margin-bottom:10px;">TODAY &middot; '+todayName.toUpperCase()+'</div>'
+    + '<div style="display:flex;align-items:flex-start;flex-wrap:wrap;gap:8px;margin-bottom:14px">'
+    + '<div><div style="font-size:20px;font-weight:800;margin-bottom:2px">'+d.title+'</div>'
+    + '<div style="font-family:\'DM Mono\',monospace;font-size:11px;color:'+color+'">'+d.subtitle+'</div></div></div>'
+    + '<div id="today-rows" style="margin-bottom:16px">'+buildRows(d.exercises, color)+'</div>'
+    + '<div class="tip-box" style="background:'+color+'10;border:1px solid '+color+'25"><span>&#128161;</span>'
+    + '<div style="font-family:\'DM Mono\',monospace;font-size:12px;color:#777;line-height:1.6">'+d.tip+'</div></div>';
+  attachRows(tc, d.exercises, color);
 }
 
-// ── WEEK CALENDAR ─────────────────────────────────────────
-var selected = null;
-var showMode = 'main';
+// ── CALENDAR ──────────────────────────────────────────────
+var selected = null, showMode = 'main';
 var calendar = document.getElementById('calendar');
 var panelContainer = document.getElementById('panel-container');
 
 function renderCalendar() {
   calendar.innerHTML = '';
   days.forEach(function(d, i) {
-    var ts = tagStyles[d.tag];
-    var isActive = selected === i;
+    var ts = tagStyles[d.tag], isActive = selected===i;
     var card = document.createElement('div');
-    card.className = 'day-card' + (isActive ? ' active' : '');
-    if (isActive) { card.style.background = d.color+'18'; card.style.borderColor = d.color; }
-    card.innerHTML = (isActive ? '<div class="glow-bar" style="background:linear-gradient(90deg,transparent,'+d.color+',transparent)"></div>' : '')
+    card.className = 'day-card'+(isActive?' active':'');
+    if (isActive) { card.style.background=d.color+'18'; card.style.borderColor=d.color; }
+    card.innerHTML = (isActive?'<div class="glow-bar" style="background:linear-gradient(90deg,transparent,'+d.color+',transparent)"></div>':'')
       + '<div class="day-label" style="'+(isActive?'color:'+d.color:'')+'">'+d.day+'</div>'
       + '<div class="day-tag" style="background:'+ts.bg+';border:1px solid '+ts.border+';color:'+ts.text+'">'+d.tag+'</div>'
       + '<div style="font-size:20px">'+(d.type==='gym'?'&#127947;':d.type==='run'?'&#127939;':'&#128564;')+'</div>'
       + '<div class="day-name" style="'+(isActive?'color:#fff':'')+'">'+d.label+'</div>';
-    card.addEventListener('click', function() {
+    card.addEventListener('click', function(){
       selected = isActive ? null : i;
       if (!isActive) showMode = 'main';
-      renderCalendar();
-      renderPanel();
+      renderCalendar(); renderPanel();
     });
     calendar.appendChild(card);
   });
 }
 
 function renderPanel() {
-  if (selected === null) {
-    panelContainer.innerHTML = '<div class="empty-hint">tap a day to see your workout</div>';
-    return;
-  }
+  if (selected===null) { panelContainer.innerHTML='<div class="empty-hint">tap a day to see your workout</div>'; return; }
   var d = days[selected];
   var isHome = showMode==='home' && d.homegym;
   var isAlt  = showMode==='alt'  && d.alt;
-  var view   = isHome ? d.homegym : isAlt ? d.alt : d;
-  var color  = isHome ? HOME_COLOR : isAlt ? ALT_COLOR : d.color;
+  var view = isHome?d.homegym : isAlt?d.alt : d;
+  var color = isHome?HOME_COLOR : isAlt?ALT_COLOR : d.color;
 
-  function tabBtn(id, label, active, col) {
-    return '<button id="'+id+'" style="font-family:\'DM Mono\',monospace;font-size:11px;padding:6px 14px;border-radius:8px;border:1px solid '+(active?col:'#333')+';background:'+(active?col+'22':'transparent')+';color:'+(active?col:'#555')+';cursor:pointer;letter-spacing:1px;">'+label+'</button>';
+  function tb(id, lbl, active, col) {
+    return '<button id="'+id+'" style="font-family:\'DM Mono\',monospace;font-size:11px;padding:6px 14px;border-radius:8px;border:1px solid '+(active?col:'#333')+';background:'+(active?col+'22':'transparent')+';color:'+(active?col:'#555')+';cursor:pointer;letter-spacing:1px;">'+lbl+'</button>';
   }
+  var tabs = tb('tab-main','Main Plan',showMode==='main',d.color);
+  if (d.homegym) tabs += tb('tab-home','🏠 Home Gym',showMode==='home',HOME_COLOR);
+  if (d.alt)     tabs += tb('tab-alt','30-Min Alt',showMode==='alt',ALT_COLOR);
 
-  var tabs = tabBtn('tab-main','Main Plan', showMode==='main', d.color);
-  if (d.homegym) tabs += tabBtn('tab-home', '🏠 Home Gym', showMode==='home', HOME_COLOR);
-  if (d.alt)     tabs += tabBtn('tab-alt',  '30-Min Alt',  showMode==='alt',  ALT_COLOR);
-
-  panelContainer.innerHTML = '<div class="panel visible" style="border:1.5px solid '+color+'40">'
+  panelContainer.innerHTML = '<div class="panel visible" id="day-panel" style="border:1.5px solid '+color+'40">'
     + '<div style="position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,'+color+','+color+'33);border-radius:18px 18px 0 0"></div>'
     + '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px">'
     + '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">'+tabs+'</div>'
-    + '<button class="close-btn" id="close-panel">&#215;</button>'
-    + '</div>'
+    + '<button class="close-btn" id="close-panel">&#215;</button></div>'
     + '<div style="font-size:20px;font-weight:800;margin-bottom:3px">'+(view.title||d.title)+'</div>'
     + '<div style="font-family:\'DM Mono\',monospace;font-size:12px;color:#555;letter-spacing:1px;margin-bottom:14px">'+(view.subtitle||d.subtitle)+'</div>'
-    + '<div style="margin-bottom:18px">'+buildRows(view.exercises, color)+'</div>'
-    + '<div class="tip-box" style="background:'+color+'10;border:1px solid '+color+'25">'
-    + '<span>&#128161;</span>'
+    + '<div id="panel-rows" style="margin-bottom:18px">'+buildRows(view.exercises, color)+'</div>'
+    + '<div class="tip-box" style="background:'+color+'10;border:1px solid '+color+'25"><span>&#128161;</span>'
     + '<div style="font-family:\'DM Mono\',monospace;font-size:12px;color:#777;line-height:1.6">'+(view.tip||d.tip)+'</div>'
     + '</div></div>';
 
+  attachRows(document.getElementById('day-panel'), view.exercises, color);
   document.getElementById('close-panel').addEventListener('click', function(){selected=null;showMode='main';renderCalendar();renderPanel();});
   document.getElementById('tab-main').addEventListener('click', function(){showMode='main';renderPanel();});
-  var hb = document.getElementById('tab-home');
-  if (hb) hb.addEventListener('click', function(){showMode='home';renderPanel();});
-  var ab = document.getElementById('tab-alt');
-  if (ab) ab.addEventListener('click', function(){showMode='alt';renderPanel();});
+  var hb=document.getElementById('tab-home'); if(hb) hb.addEventListener('click',function(){showMode='home';renderPanel();});
+  var ab=document.getElementById('tab-alt');  if(ab) ab.addEventListener('click',function(){showMode='alt';renderPanel();});
 }
 
 renderToday();
 renderCalendar();
 renderPanel();
 </script>
-
 </body>
 </html>
